@@ -1,14 +1,15 @@
 module Sidekiq
   module Grouping
     class Batch
-      def initialize(worker_class, queue, redis_pool = nil)
+      def initialize(worker_class, queue, queue_option, redis_pool = nil)
         @worker_class = worker_class
         @queue = queue
-        @name = "#{worker_class.underscore}:#{queue}"
+        @queue_option = queue_option
+        @name = "#{worker_class.underscore}:#{queue_option}:#{queue}"
         @redis = Sidekiq::Grouping::Redis.new
       end
 
-      attr_reader :name, :worker_class, :queue
+      attr_reader :name, :worker_class, :queue, :queue_option
 
       def add(msg)
         msg = msg.to_json
@@ -24,33 +25,23 @@ module Sidekiq
         @redis.batch_size(@name)
       end
 
-      def chunk_size
-        worker_class_options['batch_size'] ||
-          Sidekiq::Grouping::Config.max_batch_size
-      end
-
-      def pluck_size
-        worker_class_options['batch_flush_size'] ||
-          chunk_size
-      end
-
-      def pluck
+      def pluck(pluck_size)
         if @redis.lock(@name)
           @redis.pluck(@name, pluck_size).map { |value| JSON.parse(value) }
         end
       end
 
-      def flush
-        chunk = pluck
-        return unless chunk
+      def flush(size)
+        return unless (chunk = pluck(size))
 
-        chunk.each_slice(chunk_size) do |subchunk|
-          Sidekiq::Client.push(
-            'class' => @worker_class,
-            'queue' => @queue,
-            'args' => [true, subchunk]
-          )
-        end
+        group_size = worker_class_options['max_records_per_call'] || Sidekiq::Grouping::Config.max_records_per_call
+
+        Sidekiq::Client.push(
+          'class' => @worker_class,
+          'queue' => @queue,
+          'args' => [true, { queue_option: @queue_option, chunks: split_by_size(chunk, group_size) }]
+        )
+
         set_current_time_as_last
       end
 
@@ -65,7 +56,7 @@ module Sidekiq
       end
 
       def could_flush?
-        could_flush_on_overflow? || could_flush_on_time?
+        could_flush_on_time?
       end
 
       def last_execution_time
@@ -74,10 +65,9 @@ module Sidekiq
       end
 
       def next_execution_time
-        if interval = worker_class_options['batch_flush_interval']
-          last_time = last_execution_time
-          last_time + interval.seconds if last_time
-        end
+        interval = worker_class_options['batch_flush_interval'] || Sidekiq::Grouping::Config.default_flush_interval
+        last_time = last_execution_time
+        last_time + interval.seconds if last_time
       end
 
       def delete
@@ -85,10 +75,6 @@ module Sidekiq
       end
 
       private
-
-      def could_flush_on_overflow?
-        size >= pluck_size
-      end
 
       def could_flush_on_time?
         return false if size.zero?
@@ -112,18 +98,32 @@ module Sidekiq
         @redis.set_last_execution_time(@name, Time.now)
       end
 
+      # input: %w(1 2 3 4 5 6 7 8 9 10), 3
+      # output: [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["10"]]
+      def split_by_size(chunk, size)
+        chunk.each_slice(size).to_a
+      end
+
       class << self
         def all
           redis = Sidekiq::Grouping::Redis.new
 
           redis.batches.map do |name|
-            new(*extract_worker_klass_and_queue(name))
+            new(*extract_worker_info(name))
           end
         end
 
-        def extract_worker_klass_and_queue(name)
-          klass, queue = name.split(':')
-          [klass.camelize, queue]
+        def all_by_queue
+          all.inject({}) do |batches, batch|
+            batches[batch.queue.to_s] ||= []
+            batches[batch.queue.to_s] << batch
+            batches
+          end
+        end
+
+        def extract_worker_info(name)
+          klass, option, queue = name.split(':')
+          [klass.camelize, queue, option]
         end
       end
     end

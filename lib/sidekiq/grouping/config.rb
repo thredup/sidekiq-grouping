@@ -10,13 +10,18 @@ module Sidekiq::Grouping::Config
     options[:poll_interval] || 3
   end
 
-  # Maximum batch size
-  config_accessor :max_batch_size do
-    options[:max_batch_size] || 1000
-  end
-
   # Batch queue flush lock timeout
   config_accessor :lock_ttl do
     options[:lock_ttl] || 1
+  end
+
+  # How many records max should be grouped together
+  config_accessor :max_records_per_call do
+    options[:max_records_per_call] || 200
+  end
+
+  # How many calls can be made per minute
+  config_accessor :max_calls_per_minute do
+    options[:max_calls_per_minute] || 30
   end
 end

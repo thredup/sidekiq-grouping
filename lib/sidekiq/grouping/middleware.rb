@@ -7,22 +7,20 @@ module Sidekiq
         worker_class = worker_class.camelize.constantize if worker_class.is_a?(String)
         options = worker_class.get_sidekiq_options
 
-        batch =
-          options.key?('batch_flush_size') ||
-          options.key?('batch_flush_interval') ||
-          options.key?('batch_size')
+        batch = options['grouping'] && options['grouping'] == true
 
         passthrough =
           msg['args'] &&
           msg['args'].is_a?(Array) &&
           msg['args'].try(:first) == true
 
-        retrying = msg["failed_at"].present?
+        retrying = msg['failed_at'].present?
 
         return yield unless batch
 
         if !(passthrough || retrying)
-          add_to_batch(worker_class, queue, msg, redis_pool)
+          queue_option = msg['args'].first
+          add_to_batch(worker_class, queue, queue_option, msg, redis_pool)
         else
           msg['args'].shift if passthrough
           yield
@@ -31,9 +29,9 @@ module Sidekiq
 
       private
 
-      def add_to_batch(worker_class, queue, msg, redis_pool = nil)
+      def add_to_batch(worker_class, queue, queue_option, msg, redis_pool = nil)
         Sidekiq::Grouping::Batch
-          .new(worker_class.name, queue, redis_pool)
+          .new(worker_class.name, queue, queue_option, redis_pool)
           .add(msg['args'])
 
         nil
