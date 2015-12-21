@@ -34,6 +34,8 @@ module Sidekiq
       def flush(size)
         return unless (chunk = pluck(size))
 
+        info "Flushing #{@name} of #{size} records"
+
         group_size = worker_class_options['max_records_per_call'] || Sidekiq::Grouping::Config.max_records_per_call
 
         Sidekiq::Client.push(
@@ -65,7 +67,7 @@ module Sidekiq
       end
 
       def next_execution_time
-        interval = worker_class_options['batch_flush_interval'] || Sidekiq::Grouping::Config.default_flush_interval
+        interval = worker_class_options['batch_flush_interval'] || Sidekiq::Grouping::Config.batch_flush_interval
         last_time = last_execution_time
         last_time + interval.seconds if last_time
       end
