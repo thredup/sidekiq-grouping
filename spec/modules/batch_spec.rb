@@ -6,7 +6,7 @@ describe Sidekiq::Grouping::Batch do
   context 'adding' do
     it 'must enqueue unbatched worker' do
        RegularWorker.perform_async('foo_option', 'bar')
-       expect(RegularWorker).to have_enqueued_job('foo_option', 'bar')
+       expect(RegularWorker).to have_enqueued_sidekiq_job('foo_option', 'bar')
     end
 
     it 'must not enqueue batched worker' do
@@ -37,7 +37,7 @@ describe Sidekiq::Grouping::Batch do
       expect(batch.could_flush?).to be_falsy
       10.times { |n| BatchedSizeWorker.perform_async('foo_option', "bar#{n}") }
       batch.flush(2)
-      expect(BatchedSizeWorker).to have_enqueued_job({ "queue_option" => "foo_option", "chunks" => [[["foo_option", "bar0"], ["foo_option", "bar1"]]] })
+      expect(BatchedSizeWorker).to have_enqueued_sidekiq_job({ "queue_option" => "foo_option", "chunks" => [[["foo_option", "bar0"], ["foo_option", "bar1"]]] })
       expect(batch.size).to eq(8)
     end
   end
@@ -94,7 +94,7 @@ describe Sidekiq::Grouping::Batch do
 
   private
   def expect_batch(klass, queue, queue_option)
-    expect(klass).to_not have_enqueued_job('foo_option', 'bar')
+    expect(klass).to_not have_enqueued_sidekiq_job('foo_option', 'bar')
     batch = subject.new(klass.name, queue, queue_option)
     stats = subject.all
     expect(batch.size).to eq(1)

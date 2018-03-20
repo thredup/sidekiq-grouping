@@ -34,7 +34,7 @@ module Sidekiq
       def flush(size)
         return unless (chunk = pluck(size))
 
-        info "Flushing #{@name} of #{size} records"
+        Sidekiq::Grouping.logger.info("Flushing #{@name} of #{size} records")
 
         group_size = worker_class_options['max_records_per_call'] || Sidekiq::Grouping::Config.max_records_per_call
 
