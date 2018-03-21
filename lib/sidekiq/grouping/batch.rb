@@ -67,9 +67,10 @@ module Sidekiq
       end
 
       def next_execution_time
+        return unless (last_time = last_execution_time)
+
         interval = worker_class_options['batch_flush_interval'] || Sidekiq::Grouping::Config.batch_flush_interval
-        last_time = last_execution_time
-        last_time + interval.seconds if last_time
+        last_time + interval.seconds
       end
 
       def delete
