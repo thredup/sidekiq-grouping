@@ -48,6 +48,6 @@ end
 
 if Sidekiq.server?
   Sidekiq.on(:startup) do
-    Sidekiq::Grouping.start!
+    Sidekiq::Grouping.start! if Sidekiq::Grouping::Config.enabled
   end
 end
