@@ -28,7 +28,7 @@ class Sidekiq::Grouping::Flusher
       all_methods[method][:flushable_records] = records_per_queue
     end
 
-    flush_concrete(methods)
+    flush_concrete(all_methods)
   end
 
   def calculate_records_per_queue(max_records_per_call, max_calls_per_minute, number_of_records, number_of_batch)
