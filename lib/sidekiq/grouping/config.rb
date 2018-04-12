@@ -1,37 +1,25 @@
 module Sidekiq::Grouping::Config
   include ActiveSupport::Configurable
 
-  def self.options
-    Sidekiq.options["grouping"] || {}
-  end
+  # The block notation used in the original repo is not compatible with Rails 3.
 
-  # Queue size overflow check polling interval
-  config_accessor :poll_interval do
-    options[:poll_interval] || 3
-  end
+  config_accessor :enabled, :poll_interval, :batch_flush_interval, :max_records_per_call, :max_calls_per_minute, :lock_ttl
 
-  # The processing of batches can be disabled with this option
-  config_accessor :enabled do
-    options[:enabled] || true
-  end
+  ### Default values ###
+  self.config.enabled = true
+
+  # Queue check polling interval
+  self.config.poll_interval = 3
 
   # Flush the queue every x seconds
-  config_accessor :batch_flush_interval do
-    options[:batch_flush_interval] || 60
-  end
-
-  # Batch queue flush lock timeout
-  config_accessor :lock_ttl do
-    options[:lock_ttl] || 1
-  end
+  self.config.batch_flush_interval = 60
 
   # How many records max should be grouped together
-  config_accessor :max_records_per_call do
-    options[:max_records_per_call] || 200
-  end
+  self.config.max_records_per_call = 200
 
   # How many calls can be made per minute
-  config_accessor :max_calls_per_minute do
-    options[:max_calls_per_minute] || 30
-  end
+  self.config.max_calls_per_minute = 30
+
+  # Batch queue flush lock timeout
+  self.config.lock_ttl = 1
 end
