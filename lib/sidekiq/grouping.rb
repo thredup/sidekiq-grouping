@@ -50,4 +50,8 @@ Sidekiq.configure_server do |config|
   end
 end
 
-Sidekiq::Grouping.start! if Sidekiq.server?
+if Sidekiq.server?
+  Sidekiq.on(:startup) do
+    Sidekiq::Grouping.start! if Sidekiq::Grouping::Config.enabled
+  end
+end
