@@ -93,6 +93,7 @@ describe Sidekiq::Grouping::Batch do
   end
 
   private
+
   def expect_batch(klass, queue, queue_option)
     expect(klass).to_not have_enqueued_sidekiq_job('foo_option', 'bar')
     batch = subject.new(klass.name, queue, queue_option)

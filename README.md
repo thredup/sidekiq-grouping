@@ -111,6 +111,8 @@ This jobs will be grouped into the single job with the single argument:
   # => [[5]]
   ```
 
+- `tests_env` is used to silence some logging in test environments (see below). Default: true if `Rails.env.test?`, false otherwise.
+
 ## Web UI
 
 ![Web UI](web.png)
@@ -142,9 +144,56 @@ Sidekiq::Grouping::Config.lock_ttl = 1
 
 Note that you should set poll_interval option inside of sidekiq.yml to take effect. Setting this param in your ruby code won't change actual polling frequency.
 
-## TODO
+## Testing with Sidekiq::Testing.fake!
 
-1. Add support redis_pool option.
+Sidekiq::Grouping uses internal queues for grouping tasks. If you need to force flush internal queues into normal Sidekiq queues, use `Sidekiq::Grouping.force_flush_for_test!`.
+
+See example:
+
+```ruby
+# worker
+class GroupedWorker
+
+  include Sidekiq::Worker
+  sidekiq_options(
+    queue: :custom_queue,
+    retry: 5,
+    batch_flush_size: 9,
+    batch_flush_interval: 10,
+    batch_size: 3,
+    batch_unique: true
+  )
+
+  def perform(grouped_arguments)
+    # ... important payload
+  end
+
+end
+
+# test itself
+RSpec.describe GroupedWorker, type: :worker do
+
+  describe '#perform' do
+    it 'calls perform with array of arguments' do
+      Sidekiq::Testing.fake! do
+        described_class.perform_async(1)
+        described_class.perform_async(1)
+        described_class.perform_async(2)
+        described_class.perform_async(2)
+
+        # All 4 above asks will be put to :custom_queue despite of :batch_flush_size is set to 9.
+        Sidekiq::Grouping.force_flush_for_test!
+
+        last_job = described_class.jobs.last
+        expect(last_job['args']).to eq([[[1], [2]]])
+        expect(last_job['queue']).to eq('custom_queue')
+      end
+    end
+  end
+
+end
+
+```
 
 ## Installation
 

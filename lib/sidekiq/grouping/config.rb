@@ -3,7 +3,7 @@ module Sidekiq::Grouping::Config
 
   # The block notation used in the original repo is not compatible with Rails 3.
 
-  config_accessor :enabled, :poll_interval, :batch_flush_interval, :max_records_per_call, :max_calls_per_minute, :lock_ttl
+  config_accessor :enabled, :poll_interval, :batch_flush_interval, :max_records_per_call, :max_calls_per_minute, :lock_ttl, :tests_env
 
   ### Default values ###
   self.config.enabled = true
@@ -22,4 +22,7 @@ module Sidekiq::Grouping::Config
 
   # Batch queue flush lock timeout
   self.config.lock_ttl = 1
+
+  # Option to override how Sidekiq::Grouping know about tests env
+  self.config.tests_env = defined?(::Rails) && Rails.respond_to?(:env) && Rails.env.test?
 end
