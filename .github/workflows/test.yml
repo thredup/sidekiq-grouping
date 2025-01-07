@@ -29,6 +29,7 @@ jobs:
           - { ruby_version: 3.0 }
           - { ruby_version: 3.1 }
           - { ruby_version: 3.3 }
+    fail-fast: false
     steps:
       - uses: actions/checkout@v3
 
