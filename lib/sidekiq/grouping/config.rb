@@ -16,7 +16,7 @@ module Sidekiq
       end
 
       config_accessor :enabled do
-        !!options[:enabled] || true
+        options[:enabled] != false
       end
 
       # Queue size overflow check polling interval

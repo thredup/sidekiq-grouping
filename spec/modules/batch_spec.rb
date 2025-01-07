@@ -22,13 +22,13 @@ describe Sidekiq::Grouping::Batch do
       batch = subject.new(BatchedSizeWorker.name, "batched_size", "foo_option")
 
       # empty batch, the dates are not set.
-      expect(batch.could_flush?).to be_falsy
+      expect(batch).not_to be_could_flush
       BatchedSizeWorker.perform_async("foo_option", "bar")
       # non empty batch, dates are initiated but the batch is not flushed
-      expect(batch.could_flush?).to be_falsy
+      expect(batch).not_to be_could_flush
       Timecop.travel(1.minute.since)
       # we are 1min from the last check with a non empty batch => flushable
-      expect(batch.could_flush?).to be_truthy
+      expect(batch).to be_could_flush
     end
   end
 
@@ -36,7 +36,7 @@ describe Sidekiq::Grouping::Batch do
     it "must put worker to queue on flush" do
       batch = subject.new(BatchedSizeWorker.name, "batched_size", "foo_option")
 
-      expect(batch.could_flush?).to be_falsy
+      expect(batch).not_to be_could_flush
       10.times { |n| BatchedSizeWorker.perform_async("foo_option", "bar#{n}") }
       batch.flush(2)
       expect(BatchedSizeWorker).to have_enqueued_sidekiq_job(
@@ -97,7 +97,7 @@ describe Sidekiq::Grouping::Batch do
             "foo_option"
           )
           2.times do
-            BatchedUniqueArgsWorker.perform_async("foo_option" + "bar", 1)
+            BatchedUniqueArgsWorker.perform_async("foo_option", "bar", 1)
           end
           2.times do
             BatchedUniqueArgsWorker.perform_async("foo_option", "baz", 1)

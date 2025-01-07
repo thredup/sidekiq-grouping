@@ -23,14 +23,57 @@ RSpec/ExampleLength:
 RSpec/AnyInstance:
   Enabled: false
 
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+RSpec/NamedSubject:
+  Enabled: false
+
+RSpec/ContextWording:
+  Enabled: false
+
+RSpec/RepeatedExampleGroupDescription:
+  Enabled: false
+
+RSpec/NestedGroups:
+  Enabled: false
+
+RSpec/MultipleExpectations:
+  Enabled: false
+
+RSpec/ExampleWording:
+  Enabled: false
+
 Metrics/MethodLength:
   Max: 15
+  Exclude:
+    - 'lib/sidekiq/grouping/flusher.rb'
+    - 'lib/sidekiq/grouping/middleware.rb'
+    - 'lib/sidekiq/grouping/batch.rb'
 
 Metrics/ClassLength:
   Max: 150
 
+Metrics/AbcSize:
+  Exclude:
+    - 'lib/sidekiq/grouping/flusher.rb'
+    - 'lib/sidekiq/grouping/middleware.rb'
+    - 'spec/modules/batch_spec.rb'
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - 'lib/sidekiq/grouping/flusher.rb'
+    - 'lib/sidekiq/grouping/middleware.rb'
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - 'lib/sidekiq/grouping/middleware.rb'
+
 Layout/LineLength:
-  Max: 80
+  Max: 90
+  Exclude:
+    - 'lib/sidekiq/grouping/flusher.rb'
+    - 'lib/sidekiq/grouping/web.rb'
 
 Layout/FirstArgumentIndentation:
   EnforcedStyle: consistent
@@ -40,3 +83,6 @@ Layout/FirstMethodArgumentLineBreak:
 
 Layout/MultilineMethodArgumentLineBreaks:
   Enabled: true
+
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec

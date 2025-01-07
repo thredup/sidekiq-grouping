@@ -3,7 +3,7 @@
 module Sidekiq
   module Grouping
     class Flusher
-      def flush(force = false)
+      def flush(force: false)
         all_methods = Sidekiq::Grouping::Batch.all.each_with_object({}) do |batch, methods|
           next methods if !batch.could_flush? && !force
 
@@ -22,8 +22,10 @@ module Sidekiq
 
         all_methods.each do |method, options|
           job_class = method.camelize.constantize
-          max_records_per_call = job_class.get_sidekiq_options["max_records_per_call"] || Sidekiq::Grouping::Config.max_records_per_call
-          max_calls_per_minute = job_class.get_sidekiq_options["max_calls_per_minute"] || Sidekiq::Grouping::Config.max_calls_per_minute
+          max_records_per_call = job_class.get_sidekiq_options["max_records_per_call"] ||
+                                 Sidekiq::Grouping::Config.max_records_per_call
+          max_calls_per_minute = job_class.get_sidekiq_options["max_calls_per_minute"] ||
+                                 Sidekiq::Grouping::Config.max_calls_per_minute
 
           records_per_queue = calculate_records_per_queue(
             max_records_per_call,
@@ -54,7 +56,7 @@ module Sidekiq
           )
         end
 
-        flush(true)
+        flush(force: true)
       end
 
       private
@@ -62,7 +64,7 @@ module Sidekiq
       def calculate_records_per_queue(max_records_per_call,
                                       max_calls_per_minute, number_of_records, number_of_batch)
         number_of_calls = number_of_records / max_records_per_call
-        number_of_calls += 1 if number_of_records % max_records_per_call > 0
+        number_of_calls += 1 if (number_of_records % max_records_per_call).positive?
 
         number_of_records_to_process = if number_of_calls > max_calls_per_minute
                                          max_calls_per_minute * max_records_per_call
@@ -81,7 +83,7 @@ module Sidekiq
       def flush_concrete(methods)
         return unless methods.any?
 
-        methods.each do |_method, options|
+        methods.each_value do |options|
           names = options[:batches].map do |batch|
             "#{batch.worker_class} in #{batch.queue} with option #{batch.queue_option}"
           end

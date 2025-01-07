@@ -45,14 +45,19 @@ module Sidekiq
 
         Sidekiq::Grouping.logger.info("Flushing #{@name} of #{size} records")
 
-        group_size = worker_class_options["max_records_per_call"] || Sidekiq::Grouping::Config.max_records_per_call
+        group_size = worker_class_options["max_records_per_call"] ||
+                     Sidekiq::Grouping::Config.max_records_per_call
 
         Sidekiq::Client.push(
           "class" => @worker_class,
           "queue" => @queue,
-          "args" => [true,
-                     { "queue_option" => @queue_option,
-                       "chunks" => split_by_size(chunk, group_size) }]
+          "args" => [
+            true,
+            {
+              "queue_option" => @queue_option,
+              "chunks" => split_by_size(chunk, group_size)
+            }
+          ]
         )
 
         set_current_time_as_last
@@ -80,7 +85,8 @@ module Sidekiq
       def next_execution_time
         return unless (last_time = last_execution_time)
 
-        interval = worker_class_options["batch_flush_interval"] || Sidekiq::Grouping::Config.batch_flush_interval
+        interval = worker_class_options["batch_flush_interval"] ||
+                   Sidekiq::Grouping::Config.batch_flush_interval
         last_time + interval.seconds
       end
 

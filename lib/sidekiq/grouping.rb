@@ -31,9 +31,9 @@ module Sidekiq
       def start!
         interval = Sidekiq::Grouping::Config.poll_interval
         @observer = Sidekiq::Grouping::FlusherObserver.new
-        @task = Concurrent::TimerTask.new(
-          execution_interval: interval
-        ) { Sidekiq::Grouping::Flusher.new.flush }
+        @task = Concurrent::TimerTask.new(execution_interval: interval) do
+          Sidekiq::Grouping::Flusher.new.flush
+        end
         @task.add_observer(@observer)
         logger.info(
           "[Sidekiq::Grouping] Started polling batches every " \

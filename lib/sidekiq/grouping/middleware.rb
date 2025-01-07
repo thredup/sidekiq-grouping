@@ -8,19 +8,23 @@ module Sidekiq
         options = sanitized_worker_class.get_sidekiq_options
 
         return yield unless batch?(options)
-        if inline_mode? && !Sidekiq::Testing.server_middleware.exists?(self.class)
-          return
-        end # Skips batching in inline mode unless the server middleware is in the Sidekiq::Testing middleware chain.
+
+        # Skips batching in inline mode unless the server middleware is
+        # in the Sidekiq::Testing middleware chain.
+        return if inline_mode? && !Sidekiq::Testing.server_middleware.exists?(self.class)
 
         queue_option = get_queue_option(msg)
 
         if passthrough?(msg) || retrying?(msg)
           msg["args"].shift if passthrough?(msg)
           yield
-        elsif inline_mode? # Simulates the server side batching when it's an inline test + the middleware is in the Sidekiq::Testing middleware chain.
-          msg["args"] =
-            [true,
-             { "queue_option" => queue_option, "chunks" => [[msg["args"]]] }]
+        elsif inline_mode?
+          # Simulates the server side batching when it's an inline test +
+          # the middleware is in the Sidekiq::Testing middleware chain.
+          msg["args"] = [
+            true,
+            { "queue_option" => queue_option, "chunks" => [[msg["args"]]] }
+          ]
           yield
         else
           add_to_batch(
@@ -46,7 +50,9 @@ module Sidekiq
       def sanitize_worker_class(worker_class)
         if worker_class.is_a?(String)
           worker_class.camelize.constantize
-        elsif worker_class.is_a?(Object) && !worker_class.is_a?(Class) # Sidekiq::Testing inline mode + middleware is in the middleware chain. The job is an instance of the worker class here (pls don't ask why).
+        elsif worker_class.is_a?(Object) && !worker_class.is_a?(Class)
+          # Sidekiq::Testing inline mode + middleware is in the middleware chain.
+          # The job is an instance of the worker class here (pls don't ask why).
           worker_class.class
         else
           worker_class
@@ -62,8 +68,7 @@ module Sidekiq
       end
 
       def passthrough?(msg)
-        msg["args"] &&
-          msg["args"].is_a?(Array) &&
+        msg["args"].is_a?(Array) &&
           msg["args"].try(:first) == true
       end
 
