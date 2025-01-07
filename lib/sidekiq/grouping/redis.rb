@@ -1,81 +1,104 @@
+# frozen_string_literal: true
+
+require_relative "redis_dispatcher"
+
 module Sidekiq
   module Grouping
     class Redis
+      include RedisDispatcher
 
       PLUCK_SCRIPT = <<-SCRIPT
-        local pluck_values = redis.call('lrange', KEYS[1], 0, ARGV[1] - 1)
-        redis.call('ltrim', KEYS[1], ARGV[1], -1)
-        for k, v in pairs(pluck_values) do
-          redis.call('srem', KEYS[2], v)
+        local pluck_values = redis.call('lpop', KEYS[1], ARGV[1]) or {}
+        if #pluck_values > 0 then
+          redis.call('srem', KEYS[2], unpack(pluck_values))
         end
         return pluck_values
       SCRIPT
 
-      def push_msg(name, msg, remember_unique = false)
+      def push_msg(name, msg, remember_unique: false)
         redis do |conn|
-          conn.multi do
-            conn.sadd(ns('batches'), name)
-            conn.rpush(ns(name), msg)
-            conn.sadd(unique_messages_key(name), msg) if remember_unique
+          conn.multi do |pipeline|
+            sadd = pipeline.respond_to?(:sadd?) ? :sadd? : :sadd
+            redis_connection_call(pipeline, sadd, ns("batches"), name)
+            redis_connection_call(pipeline, :rpush, ns(name), msg)
+
+            if remember_unique
+              redis_connection_call(
+                pipeline, sadd, unique_messages_key(name), msg
+              )
+            end
           end
         end
       end
 
       def enqueued?(name, msg)
-        redis do |conn|
-          conn.sismember(unique_messages_key(name), msg)
-        end
+        member = redis_call(:sismember, unique_messages_key(name), msg)
+        return member if member.is_a?(TrueClass) || member.is_a?(FalseClass)
+
+        member != 0
       end
 
       def batch_size(name)
-        redis { |conn| conn.llen(ns(name)) }
+        redis_call(:llen, ns(name))
       end
 
       def batches
-        redis { |conn| conn.smembers(ns('batches')) }
+        redis_call(:smembers, ns("batches"))
       end
 
       def pluck(name, limit)
-        keys = [ns(name), unique_messages_key(name)]
-        args = [limit]
-        redis { |conn| conn.eval PLUCK_SCRIPT, keys, args }
+        if new_redis_client?
+          redis_call(
+            :eval,
+            PLUCK_SCRIPT,
+            2,
+            ns(name),
+            unique_messages_key(name),
+            limit
+          )
+        else
+          keys = [ns(name), unique_messages_key(name)]
+          args = [limit]
+          redis_call(:eval, PLUCK_SCRIPT, keys, args)
+        end
       end
 
       def get_last_execution_time(name)
-        redis { |conn| conn.get(ns("last_execution_time:#{name}")) }
+        redis_call(:get, ns("last_execution_time:#{name}"))
       end
 
       def set_last_execution_time(name, time)
-        redis { |conn| conn.set(ns("last_execution_time:#{name}"), time.to_json) }
+        redis_call(
+          :set, ns("last_execution_time:#{name}"), time.to_json
+        )
       end
 
       def lock(name)
-        redis do |conn|
-          id = ns("lock:#{name}")
-          conn.set(id, true, nx: true, ex: Sidekiq::Grouping::Config.lock_ttl)
-        end
+        redis_call(
+          :set,
+          ns("lock:#{name}"),
+          "true",
+          nx: true,
+          ex: Sidekiq::Grouping::Config.lock_ttl
+        )
       end
 
       def delete(name)
         redis do |conn|
-          conn.del(ns("last_execution_time:#{name}"))
-          conn.del(ns(name))
-          conn.srem(ns('batches'), name)
+          redis_connection_call(conn, :del, ns("last_execution_time:#{name}"))
+          redis_connection_call(conn, :del, ns(name))
+          redis_connection_call(conn, :srem, ns("batches"), name)
         end
       end
 
       private
 
-      def unique_messages_key name
+      def unique_messages_key(name)
         ns("#{name}:unique_messages")
       end
 
       def ns(key = nil)
         "batching:#{key}"
-      end
-
-      def redis(&block)
-        Sidekiq.redis(&block)
       end
     end
   end

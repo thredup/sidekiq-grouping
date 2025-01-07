@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 class RegularWorker
   include Sidekiq::Worker
 
-  def perform(foo)
-  end
+  def perform(foo); end
 end
 
 class BatchedSizeWorker
@@ -10,8 +11,7 @@ class BatchedSizeWorker
 
   sidekiq_options grouping: true, queue: :batched_size, max_calls_per_min: 2
 
-  def perform(foo)
-  end
+  def perform(foo); end
 end
 
 class BatchedUniqueArgsWorker
@@ -21,6 +21,5 @@ class BatchedUniqueArgsWorker
     grouping: true, queue: :batched_unique_args, max_calls_per_min: 3, batch_unique: true
   )
 
-  def perform(foo)
-  end
+  def perform(foo); end
 end
