@@ -41,7 +41,7 @@ module Sidekiq
         options[:lock_ttl] || 1
       end
 
-      # Option to override how Sidekiq::Grouping know about tests env
+      # Option to override how Sidekiq::Grouping knows about tests env
       config_accessor :tests_env do
         options[:tests_env] || (
           defined?(::Rails) && Rails.respond_to?(:env) && Rails.env.test?
